@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Class Routine Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 40px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+    caption {
+      font-weight: bold;
+      font-size: 1.2em;
+      margin: 10px 0;
+    }
+    button {
+      padding: 10px 20px;
+      margin-bottom: 20px;
+    }
+    select {
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Class Routine Generator</h1>
+<button id="generateBtn">Generate Routine</button>
+<div id="routineContainer"></div>
+
+<script>
+const classes = ["VI", "VII", "VIII", "IX", "X"];
+const periods = ["09:00 - 09:45", "09:45 - 10:25", "10:25 - 11:05", "11:05 - 11:45", "Tiffin Break", "12:15 - 12:55", "12:55 - 01:35", "01:35 - 02:15"];
+const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const subjects = ["English", "Maths", "Science", "Social Science", "Hindi", "Assamese"];
+const teachersBySubject = {
+  "English": ["KARABI C. SARMA", "ANANYA CHANGKAKATI", "NIPARANI HALOI"],
+  "Maths": ["KALPITA DEVI", "RUPAM BORGOHAIN", "MONOJ ROY", "POLINA BHUYAN", "PURABI PATOWARI"],
+  "Science": ["KALPITA DEVI", "MONOJ ROY", "POLINA BHUYAN", "ANIMA GOSWAMI"],
+  "Social Science": ["JITU KHANIKAR", "SEMIM RAHMAN", "PULAKA DAS"],
+  "Hindi": ["RATNESWAR PATHAK"],
+  "Assamese": ["SANGITA L. BORAH", "GITANJALI DEVI", "PULAKA DAS"]
+};
+
+let routineData = {};
+
+function getRandomItem(array) {
+  return array[Math.floor(Math.random() * array.length)];
+}
+
+function getFreeTeachers(day, periodIndex) {
+  const engaged = new Set();
+  for (let cls of classes) {
+    const slot = routineData[cls]?.[day]?.[periodIndex];
+    if (slot && slot.teacher && slot.teacher !== "-") {
+      engaged.add(slot.teacher);
+    }
+  }
+  return Object.values(teachersBySubject).flat().filter(t => !engaged.has(t));
+}
+
+function createDropdown(options, selectedValue, onChange) {
+  const select = document.createElement("select");
+  options.forEach(opt => {
+    const option = document.createElement("option");
+    option.value = opt;
+    option.text = opt;
+    if (opt === selectedValue) option.selected = true;
+    select.appendChild(option);
+  });
+  select.addEventListener("change", onChange);
+  return select;
+}
+
+function generateRoutine() {
+  routineData = {};
+  const container = document.getElementById("routineContainer");
+  container.innerHTML = "";
+
+  classes.forEach(cls => {
+    routineData[cls] = {};
+    const table = document.createElement("table");
+    const caption = document.createElement("caption");
+    caption.innerText = "Class " + cls;
+    table.appendChild(caption);
+
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    headRow.innerHTML = "<th>Day / Period</th>" + periods.map(p => `<th>${p}</th>`).join("");
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+
+    days.forEach(day => {
+      routineData[cls][day] = {};
+      const row = document.createElement("tr");
+      row.innerHTML = `<td>${day}</td>`;
+
+      periods.forEach((period, pIndex) => {
+        const cell = document.createElement("td");
+
+        if (day === "Saturday" && pIndex >= 4) {
+          cell.innerText = "-";
+        } else if (period === "Tiffin Break") {
+          cell.innerText = "Tiffin Break";
+        } else {
+          let subject = getRandomItem(subjects);
+          let possibleTeachers = teachersBySubject[subject] || [];
+          let freeTeachers = possibleTeachers.filter(t => getFreeTeachers(day, pIndex).includes(t));
+
+          let teacher = freeTeachers.length > 0 ? getRandomItem(freeTeachers) : getRandomItem(getFreeTeachers(day, pIndex)) || "-";
+
+          if (!teacher) {
+            subject = "Other";
+            teacher = getRandomItem(getFreeTeachers(day, pIndex)) || "-";
+          }
+
+          routineData[cls][day][pIndex] = { subject, teacher };
+
+          const subjectDropdown = createDropdown([...subjects, "Other"], subject, function () {
+            const newSubject = this.value;
+            const newTeachers = teachersBySubject[newSubject] || getFreeTeachers(day, pIndex);
+            const teacherDropdown = this.nextSibling;
+            teacherDropdown.innerHTML = "";
+            newTeachers.filter(t => getFreeTeachers(day, pIndex).includes(t)).forEach(t => {
+              const opt = document.createElement("option");
+              opt.value = t;
+              opt.text = t;
+              teacherDropdown.appendChild(opt);
+            });
+            routineData[cls][day][pIndex].subject = newSubject;
+            routineData[cls][day][pIndex].teacher = teacherDropdown.value || "-";
+          });
+
+          const teacherDropdown = createDropdown(getFreeTeachers(day, pIndex), teacher, function () {
+            routineData[cls][day][pIndex].teacher = this.value;
+          });
+
+          cell.appendChild(subjectDropdown);
+          cell.appendChild(teacherDropdown);
+        }
+
+        row.appendChild(cell);
+      });
+
+      tbody.appendChild(row);
+    });
+
+    table.appendChild(tbody);
+    container.appendChild(table);
+  });
+}
+
+document.getElementById("generateBtn").addEventListener("click", generateRoutine);
+</script>
+
+</body>
+</html>
