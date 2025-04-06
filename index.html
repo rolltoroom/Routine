@@ -1,171 +1,238 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Class Routine Generator</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 40px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 10px;
-      text-align: center;
-    }
-    th {
-      background-color: #f0f0f0;
-    }
-    caption {
-      font-weight: bold;
-      font-size: 1.2em;
-      margin: 10px 0;
-    }
-    button {
-      padding: 10px 20px;
-      margin-bottom: 20px;
-    }
-    select {
-      margin-top: 5px;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f9; }
+    table { border-collapse: collapse; margin-bottom: 40px; width: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden; }
+    caption { font-weight: bold; font-size: 1.5em; margin-bottom: 10px; padding: 10px; border-radius: 8px; background: linear-gradient(to right, #4e54c8, #8f94fb); color: white; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    th, td { border: 1px solid #aaa; padding: 8px; text-align: center; background-color: #fff; }
+    th { background-color: #f0f0f0; }
+    select { margin-top: 5px; width: 100%; padding: 5px; border-radius: 4px; }
+    .dropdown { width: 100%; }
+    .absent-selector { margin-bottom: 20px; }
+    .absent-display { font-weight: bold; margin-top: 10px; }
+    button { padding: 8px 12px; margin: 10px 5px; border: none; border-radius: 6px; cursor: pointer; background-color: #4CAF50; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    button:hover { background-color: #45a049; }
+    .absent-highlight { background-color: #ffe6e6 !important; }
   </style>
 </head>
 <body>
+  <h1>Class Routine Generator</h1>
+  <div class="absent-selector">
+    <label for="absentTeachers">Select Absent Teachers:</label><br>
+    <select id="absentTeachers" multiple size="5"></select><br>
+  </div>
+  <div id="absentListDisplay" class="absent-display">Absent: None</div>
+  <button id="generateBtn">Generate Routine</button>
+  <button onclick="downloadPDF()">Download PDF</button>
+  <button onclick="saveRoutine()">Save</button>
+  <button onclick="loadRoutine()">Open</button>
+  <div id="routineContainer"></div>
 
-<h1>Class Routine Generator</h1>
-<button id="generateBtn">Generate Routine</button>
-<div id="routineContainer"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    const classes = ["VI", "VII", "VIII", "IX", "X"];
+    const periods = [
+      "09:15 - 10:00", "10:00 - 10:40", "10:40 - 11:20", "11:20 - 12:00",
+      "Tiffin Break", "12:30 - 01:10", "01:10 - 01:50", "01:50 - 02:30"
+    ];
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const subjects = ["English", "Maths", "Science", "Social Science", "Hindi", "Assamese", "Elective", "Other"];
+    const teachers = {
+      "English": ["KARABI C. SARMA", "ANANYA CHANGKAKATI", "NIPARANI HALOI"],
+      "Maths": ["KALPITA DEVI", "RUPAM BORGOHAIN", "MONOJ ROY", "POLINA BHUYAN", "PURABI PATOWARI"],
+      "Science": ["KALPITA DEVI", "MONOJ ROY", "POLINA BHUYAN", "ANIMA GOSWAMI"],
+      "Social Science": ["JITU KHANIKAR", "SEMIM RAHMAN", "PULAKA DAS"],
+      "Hindi": ["RATNESWAR PATHAK"],
+      "Assamese": ["SANGITA L. BORAH", "GITANJALI DEVI", "PULAKA DAS"],
+      "Elective": ["SEMIM RAHMAN", "RUPAM BORGOHAIN", "SIMANTA BORA", "NIPARANI HALOI"],
+      "Other": ["KARABI C. SARMA", "ANANYA CHANGKAKATI", "NIPARANI HALOI", "RATNESWAR PATHAK", "SEMIM RAHMAN", "KALPITA DEVI","GITANJALI DEVI", "RUPAM BORGOHAIN", "MONOJ ROY", "POLINA BHUYAN", "PURABI PATOWARI", "SIMANTA BORA"]
+    };
+    const allTeachers = [...new Set(Object.values(teachers).flat())];
+    let routineMemory = {};
 
-<script>
-const classes = ["VI", "VII", "VIII", "IX", "X"];
-const periods = ["09:00 - 09:45", "09:45 - 10:25", "10:25 - 11:05", "11:05 - 11:45", "Tiffin Break", "12:15 - 12:55", "12:55 - 01:35", "01:35 - 02:15"];
-const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const subjects = ["English", "Maths", "Science", "Social Science", "Hindi", "Assamese"];
-const teachersBySubject = {
-  "English": ["KARABI C. SARMA", "ANANYA CHANGKAKATI", "NIPARANI HALOI"],
-  "Maths": ["KALPITA DEVI", "RUPAM BORGOHAIN", "MONOJ ROY", "POLINA BHUYAN", "PURABI PATOWARI"],
-  "Science": ["KALPITA DEVI", "MONOJ ROY", "POLINA BHUYAN", "ANIMA GOSWAMI"],
-  "Social Science": ["JITU KHANIKAR", "SEMIM RAHMAN", "PULAKA DAS"],
-  "Hindi": ["RATNESWAR PATHAK"],
-  "Assamese": ["SANGITA L. BORAH", "GITANJALI DEVI", "PULAKA DAS"]
-};
-
-let routineData = {};
-
-function getRandomItem(array) {
-  return array[Math.floor(Math.random() * array.length)];
-}
-
-function getFreeTeachers(day, periodIndex) {
-  const engaged = new Set();
-  for (let cls of classes) {
-    const slot = routineData[cls]?.[day]?.[periodIndex];
-    if (slot && slot.teacher && slot.teacher !== "-") {
-      engaged.add(slot.teacher);
-    }
-  }
-  return Object.values(teachersBySubject).flat().filter(t => !engaged.has(t));
-}
-
-function createDropdown(options, selectedValue, onChange) {
-  const select = document.createElement("select");
-  options.forEach(opt => {
-    const option = document.createElement("option");
-    option.value = opt;
-    option.text = opt;
-    if (opt === selectedValue) option.selected = true;
-    select.appendChild(option);
-  });
-  select.addEventListener("change", onChange);
-  return select;
-}
-
-function generateRoutine() {
-  routineData = {};
-  const container = document.getElementById("routineContainer");
-  container.innerHTML = "";
-
-  classes.forEach(cls => {
-    routineData[cls] = {};
-    const table = document.createElement("table");
-    const caption = document.createElement("caption");
-    caption.innerText = "Class " + cls;
-    table.appendChild(caption);
-
-    const thead = document.createElement("thead");
-    const headRow = document.createElement("tr");
-    headRow.innerHTML = "<th>Day / Period</th>" + periods.map(p => `<th>${p}</th>`).join("");
-    thead.appendChild(headRow);
-    table.appendChild(thead);
-
-    const tbody = document.createElement("tbody");
-
-    days.forEach(day => {
-      routineData[cls][day] = {};
-      const row = document.createElement("tr");
-      row.innerHTML = `<td>${day}</td>`;
-
-      periods.forEach((period, pIndex) => {
-        const cell = document.createElement("td");
-
-        if (day === "Saturday" && pIndex >= 4) {
-          cell.innerText = "-";
-        } else if (period === "Tiffin Break") {
-          cell.innerText = "Tiffin Break";
-        } else {
-          let subject = getRandomItem(subjects);
-          let possibleTeachers = teachersBySubject[subject] || [];
-          let freeTeachers = possibleTeachers.filter(t => getFreeTeachers(day, pIndex).includes(t));
-
-          let teacher = freeTeachers.length > 0 ? getRandomItem(freeTeachers) : getRandomItem(getFreeTeachers(day, pIndex)) || "-";
-
-          if (!teacher) {
-            subject = "Other";
-            teacher = getRandomItem(getFreeTeachers(day, pIndex)) || "-";
-          }
-
-          routineData[cls][day][pIndex] = { subject, teacher };
-
-          const subjectDropdown = createDropdown([...subjects, "Other"], subject, function () {
-            const newSubject = this.value;
-            const newTeachers = teachersBySubject[newSubject] || getFreeTeachers(day, pIndex);
-            const teacherDropdown = this.nextSibling;
-            teacherDropdown.innerHTML = "";
-            newTeachers.filter(t => getFreeTeachers(day, pIndex).includes(t)).forEach(t => {
-              const opt = document.createElement("option");
-              opt.value = t;
-              opt.text = t;
-              teacherDropdown.appendChild(opt);
-            });
-            routineData[cls][day][pIndex].subject = newSubject;
-            routineData[cls][day][pIndex].teacher = teacherDropdown.value || "-";
-          });
-
-          const teacherDropdown = createDropdown(getFreeTeachers(day, pIndex), teacher, function () {
-            routineData[cls][day][pIndex].teacher = this.value;
-          });
-
-          cell.appendChild(subjectDropdown);
-          cell.appendChild(teacherDropdown);
-        }
-
-        row.appendChild(cell);
+    document.addEventListener("DOMContentLoaded", () => {
+      const absentSelector = document.getElementById("absentTeachers");
+      allTeachers.forEach(t => {
+        const option = document.createElement("option");
+        option.value = t;
+        option.text = t;
+        absentSelector.appendChild(option);
       });
 
-      tbody.appendChild(row);
+      const deselectBtn = document.createElement("button");
+      deselectBtn.textContent = "Deselect All";
+      deselectBtn.onclick = () => {
+        [...absentSelector.options].forEach(opt => opt.selected = false);
+        updateAbsentListDisplay();
+        generateRoutine();
+      };
+      document.querySelector(".absent-selector").appendChild(deselectBtn);
+
+      absentSelector.addEventListener("change", () => {
+        updateAbsentListDisplay();
+        generateRoutine();
+      });
+
+      loadRoutine();
     });
 
-    table.appendChild(tbody);
-    container.appendChild(table);
-  });
-}
+    function updateAbsentListDisplay() {
+      const absent = Array.from(document.getElementById("absentTeachers").selectedOptions).map(o => o.value);
+      const display = document.getElementById("absentListDisplay");
+      display.innerText = "Absent: " + (absent.length ? absent.join(", ") : "None");
+      display.style.color = absent.length ? "red" : "black";
+    }
 
-document.getElementById("generateBtn").addEventListener("click", generateRoutine);
-</script>
+    document.getElementById("generateBtn").addEventListener("click", generateRoutine);
 
+    function generateRoutine() {
+      const absent = Array.from(document.getElementById("absentTeachers").selectedOptions).map(o => o.value);
+      updateAbsentListDisplay();
+      const container = document.getElementById("routineContainer");
+      container.innerHTML = "";
+      routineMemory = {};
+      const teacherSchedule = {};
+
+      classes.forEach(cls => {
+        const table = document.createElement("table");
+        const caption = document.createElement("caption");
+        caption.innerText = "Class " + cls;
+        table.appendChild(caption);
+
+        const thead = document.createElement("thead");
+        const headRow = document.createElement("tr");
+        headRow.innerHTML = "<th>Day / Period</th>" + periods.map(p => `<th>${p}</th>`).join("");
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+
+        days.forEach(day => {
+          const row = document.createElement("tr");
+          row.innerHTML = `<td>${day}</td>`;
+          routineMemory[cls] ??= {};
+          routineMemory[cls][day] = [];
+
+          periods.forEach((period, i) => {
+            const cell = document.createElement("td");
+            if (day === "Saturday" && i >= 4) {
+              cell.innerText = "-";
+            } else if (period === "Tiffin Break") {
+              cell.innerText = "Tiffin Break";
+            } else {
+              let subjectDropdown = document.createElement("select");
+              subjectDropdown.className = "dropdown";
+
+              subjects.forEach(sub => {
+                if (!["IX", "X"].includes(cls) && sub === "Elective") return;
+                const opt = document.createElement("option");
+                opt.value = sub;
+                opt.text = sub;
+                subjectDropdown.appendChild(opt);
+              });
+
+              let teacherDropdown = document.createElement("select");
+              teacherDropdown.className = "dropdown";
+
+              const updateTeacherDropdown = () => {
+                const available = (teachers[subjectDropdown.value] || []).filter(t => {
+                  if (absent.includes(t)) return false;
+                  return !teacherSchedule[day]?.[i]?.includes(t);
+                });
+
+                teacherDropdown.innerHTML = "";
+                available.forEach(t => {
+                  const opt = document.createElement("option");
+                  opt.value = t;
+                  opt.text = t;
+                  teacherDropdown.appendChild(opt);
+                });
+
+                if (teacherDropdown.options.length > 0) {
+                  teacherDropdown.value = teacherDropdown.options[0].value;
+                }
+              };
+
+              const updateMemory = () => {
+                const subj = subjectDropdown.value;
+                const teach = teacherDropdown.value;
+                routineMemory[cls][day][i] = { subject: subj, teacher: teach };
+                teacherSchedule[day] ??= {};
+                teacherSchedule[day][i] ??= [];
+                if (!teacherSchedule[day][i].includes(teach)) {
+                  teacherSchedule[day][i].push(teach);
+                }
+              };
+
+              subjectDropdown.onchange = () => {
+                updateTeacherDropdown();
+                updateMemory();
+              };
+
+              teacherDropdown.onchange = updateMemory;
+
+              updateTeacherDropdown();
+              updateMemory();
+
+              cell.appendChild(subjectDropdown);
+              cell.appendChild(document.createElement("br"));
+              cell.appendChild(teacherDropdown);
+              if (absent.includes(teacherDropdown.value)) {
+                cell.classList.add("absent-highlight");
+              }
+            }
+            row.appendChild(cell);
+          });
+
+          tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        container.appendChild(table);
+      });
+
+      saveRoutine();
+    }
+
+    function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(12);
+      doc.text("Class Routine", 10, 10);
+      let y = 20;
+
+      document.querySelectorAll("table").forEach((table) => {
+        doc.text(table.caption.textContent, 10, y);
+        y += 10;
+        table.querySelectorAll("tr").forEach(row => {
+          const text = Array.from(row.cells).map(cell => cell.innerText.replace(/\n/g, " ")).join(" | ");
+          doc.text(text, 10, y);
+          y += 10;
+          if (y > 270) {
+            doc.addPage();
+            y = 10;
+          }
+        });
+        y += 10;
+      });
+
+      doc.save("routine.pdf");
+    }
+
+    function saveRoutine() {
+      localStorage.setItem("fixedRoutine", document.getElementById("routineContainer").innerHTML);
+    }
+
+    function loadRoutine() {
+      const saved = localStorage.getItem("fixedRoutine");
+      if (saved) {
+        document.getElementById("routineContainer").innerHTML = saved;
+      }
+    }
+  </script>
 </body>
 </html>
